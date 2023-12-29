@@ -21,26 +21,27 @@ import argparse
 
 parser = argparse.ArgumentParser(prog='bsrnn')
 
-parser.add_argument('sample_rate', type=int, default=44100)
-parser.add_argument('generic_bands', type=bool, default=False)
-parser.add_argument('chunk_size_in_seconds', type=int, default=1)
-parser.add_argument('n_fft', type=int, default=2048)
-parser.add_argument('feature_dim', type=int, default=128)
-parser.add_argument('num_blstm_layers', type=int, default=24)
-parser.add_argument('mlp_dim', type=int, default=512)
-parser.add_argument('batch_size', type=int, default=95)
-parser.add_argument('clip_grad_norm', type=int, default=5)
-parser.add_argument('portion', type=float, default=1.0)
-parser.add_argument('lr', type=float, default=0.001)
+parser.add_argument('--sample_rate', type=int, default=44100)
+parser.add_argument('--generic_bands', type=str, default="N")
+parser.add_argument('--chunk_size_in_seconds', type=int, default=1)
+parser.add_argument('--n_fft', type=int, default=2048)
+parser.add_argument('--feature_dim', type=int, default=128)
+parser.add_argument('--num_blstm_layers', type=int, default=24)
+parser.add_argument('--mlp_dim', type=int, default=512)
+parser.add_argument('--batch_size', type=int, default=95)
+parser.add_argument('--clip_grad_norm', type=int, default=5)
+parser.add_argument('--max_epochs', type=int, default=150) 
+parser.add_argument('--portion', type=float, default=1.0)
+parser.add_argument('--lr', type=float, default=0.001)
 
-parser.add_argument('musdbhq_location', type=str, default="")
-parser.add_argument('checkpoint_fp', type=str, default="")
-parser.add_argument('mode', description="train-base-model,transfer,infer", required=True)
-parser.add_argument('part', type=str, default="bass")
+parser.add_argument('--musdbhq_location', type=str, default="")
+parser.add_argument('--checkpoint_fp', type=str, default="")
+parser.add_argument('--mode', type=str, default='infer') # "train-base-model,transfer,infer"
+parser.add_argument('--part', type=str, default="bass")
 
 args = parser.parse_args()
 
-fg_generic_bands = args.generic_bands
+fg_generic_bands = args.generic_bands == "Y"
 sample_rate = args.sample_rate
 chunk_size_in_seconds = args.chunk_size_in_seconds
 chunk_size = chunk_size_in_seconds * sample_rate
@@ -50,6 +51,7 @@ hop_length = win_length // 4
 feature_dim = args.feature_dim
 num_blstm_layers= args.num_blstm_layers
 mlp_dim = args.mlp_dim
+max_epochs = args.max_epochs
 transfer_learning = args.mode == "transfer"
 batch_size = args.batch_size
 clip_grad_norm = args.clip_grad_norm
@@ -363,7 +365,7 @@ class BandSplit(nn.Module, Vis):
         
         self.layer_fcs =  nn.ModuleList([
             # * 2 is for added dim of view_as_real
-            nn.Linear((band_end - band_start) * 2, 512)
+            nn.Linear((band_end - band_start) * 2, self.fully_connected_out)
             for band_start, band_end in self.band_indices
         ])
 
@@ -475,12 +477,15 @@ class MaskEstimation(nn.Module, Vis):
 
 class BSRNN(nn.Module, Vis):
     
-    def __init__(self):
+    def __init__(self, num_sources=1):
         super(BSRNN, self).__init__()
         
         self.split = BandSplit()
         self.sequence = BandSequence(input_dim_size=self.split.fully_connected_out)
-        self.mask = MaskEstimation(band_indices=self.split.band_indices, fully_connected_out=self.split.fully_connected_out)
+        
+        self.masks = nn.ModuleList([MaskEstimation(band_indices=self.split.band_indices, 
+                                                    fully_connected_out=self.split.fully_connected_out) 
+                                    for _ in range(num_sources)])
 
     def forward(self, chunk_fft):
         
@@ -490,11 +495,11 @@ class BSRNN(nn.Module, Vis):
         
         y = self.split(chunk_fft)
         y = self.sequence(y)
-        mask = self.mask(y)
+        masks = torch.stack([mask(y) for mask in self.masks], dim=0)
         
-        mask = mask * std + mean
+        masks = (masks * std) + mean
 
-        return mask
+        return masks
 
 class MSSBandSplitRNN(nn.Module, Vis):
     def __init__(self):
@@ -515,18 +520,21 @@ class MSSBandSplitRNN(nn.Module, Vis):
         
         normal_waveform, gain_factor, peak_gain_factor = normalize_waveform(waveform)
         splits, padding_length = split(normal_waveform)
-        masked_splits = [() for _ in range(len(splits))]
+        masked_splits = [[] for _ in range(len(splits))]
         for i, x_split in enumerate(splits):
             split_stft = self.to_spectogram(x_split)
-            mask = self.bsrnn(split_stft.unsqueeze(0))[0]
+            masks = self.bsrnn(split_stft.unsqueeze(0))[0]
             
-            masked_complex = mask
-            
-            wave = self.from_spectogram(masked_complex)
-            masked_splits[i] = wave
+            for source in masks:
+                wave = self.from_spectogram(masked_complex)
+                masked_splits[i].append(wave)
         
-        masked_waveform = merge(masked_splits, padding_length)
-        y = de_normalize_waveform(masked_waveform, gain_factor, peak_gain_factor)
+        sources = []
+        for masked_splits_in_source in zip(*masked_splits):
+            sources.append(masked_splits_in_source)
+        
+        masked_waveforms = [merge(x, padding_length) for x in sources]
+        y = [de_normalize_waveform(x, gain_factor, peak_gain_factor) in masked_waveforms]
         return y
     
 
@@ -565,11 +573,13 @@ import os
 import random
 import math
 
+all_parts = ["bass", "drums", "other", "vocals"]
+
 class Dataset(torch.utils.data.IterableDataset):
-    def __init__(self, part="drums", dir_=musdbhq_location, validation=False, portion=1):
+    def __init__(self, parts=all_parts, dir_=musdbhq_location, validation=False, portion=1):
         super(Dataset, self).__init__()
         path = dir_ + ("test" if validation else "train")
-        self.part = part
+        self.parts = parts
         self.files = [entry for entry in os.scandir(path) if entry.is_dir()]
         random.shuffle(self.files) # we are seeding the random gen manually so this is fine.
         self.files = self.files[:int(len(self.files) * portion)]
@@ -580,19 +590,20 @@ class Dataset(torch.utils.data.IterableDataset):
         for i in range(self.start_index, self.end_index):
             d = self.files[i]
             mixture = f"{d.path}/mixture.wav"
-            target = f"{d.path}/{self.part}.wav"
+            targets = [f"{d.path}/{part}.wav" for part in self.parts]
 
             normal_mix, _, _ = normalize_waveform(load_audio(mixture))
-            normal_target, _, _ = normalize_waveform(load_audio(target))
+            normal_targets = [normalize_waveform(load_audio(target))[0] for target in targets]
 
             normal_mix, _ = split(normal_mix)
-            normal_target, _ = split(normal_target)
+            normal_targets = [split(x)[0] for x in normal_targets]
 
-            for mix, target in zip(normal_mix, normal_target):
+            for mix, targets in zip(normal_mix, normal_targets):
                 mix_stft = to_stft(mix)
-                target_stft = to_stft(target)
+                target_stfts = [to_stft(target) for target in targets]
                 # Accumulate STFTs in the batch
-                yield (mix_stft, target_stft)
+                out = (mix_stft, target_stfts)
+                yield out
 
     def __iter__(self):
         worker_info = torch.utils.data.get_worker_info()
@@ -718,26 +729,28 @@ if in_notebook:
 
 #~~~~~
 
-
-train_loader = torch.utils.data.DataLoader(Dataset(validation=False, part=part, portion=portion), num_workers=1, 
+parts = all_parts if train_base_model else [part]
+train_loader = torch.utils.data.DataLoader(Dataset(validation=False, parts=parts, portion=portion), num_workers=1, 
                                           batch_size=batch_size, drop_last=True,
                                           prefetch_factor=4,
                                           persistent_workers=True)
-val_loader   = torch.utils.data.DataLoader(Dataset(validation=True, part=part), num_workers=1, 
+val_loader   = torch.utils.data.DataLoader(Dataset(validation=True, parts=parts), num_workers=1, 
                                           batch_size=batch_size, drop_last=True,
                                           prefetch_factor=4,
                                           persistent_workers=True)
 
 
-model = BSRNN().to('cuda')
+# because we will load from base model in transfer learning
+model = BSRNN(num_sources=len(all_parts) if transfer_learning else len(parts)).to('cuda')
 import datetime
 
-# ./train-logs/generic-splits-2023-12-22 17:01:33.861454/models/checkpoint_158.pt
-# ./train-logs/baseline-2023-12-21 14:05:22.129601/checkpoint_58.pt
-name = f"baseline-drums-to-{part}-portion-{portion}"
+fg_prefix = "generic-split" if fg_generic_bands else "v7-split"
+name_prefix = "base-model" if train_base_model else f"base-model-to-{part}"
+
+name = f"{fg_prefix}-{name_prefix}-portion-{portion}"
 prefix=f"./train-logs/{name}-{datetime.datetime.now()}"
 if not os.path.exists(name):
-    os.makedirs(name)
+    os.makedirs(prefix)
 print(f"run name={prefix}")
 
 
@@ -746,31 +759,38 @@ print(f"run name={prefix}")
 from ignite.engine import Engine, Events, create_supervised_trainer, create_supervised_evaluator
 from ignite.metrics import Accuracy, Loss, RunningAverage
 from ignite.handlers import ModelCheckpoint, Checkpoint, DiskSaver, global_step_from_engine
-from ignite.contrib.handlers import TensorboardLogger, global_step_from_engine, ProgressBar, TensorboardLogger
-
+from ignite.contrib.handlers import TensorboardLogger, global_step_from_engine, TensorboardLogger
+from ignite.contrib.handlers.tqdm_logger import ProgressBar
 #~~Ignite setup
 
 optimizer = torch.optim.Adam(model.parameters(), lr=lr)
 loss_fn = CustomLoss()
 
-torch.set_default_device('cuda')s
+torch.set_default_device('cuda')
 inv_stft_gpu = from_spectogram()
 
 def train_step(engine, batch):
     model.train()
     optimizer.zero_grad()
-    mix_stft, mask_stft = batch
-    mix_stft, mask_stft = mix_stft.to('cuda'), mask_stft.to('cuda')
-    y_mask = model(mix_stft)
-    inv_y_mask = inv_stft_gpu(y_mask)
-    inv_mask_stft = inv_stft_gpu(mask_stft)
-    loss = loss_fn(y_mask, mask_stft, inv_y_mask, inv_mask_stft)
-    loss.backward()
+    mix_stft, mask_stfts = batch
+    mix_stft, mask_stfts = mix_stft.to('cuda'), mask_stfts
+    mask_stfts = [mask_stft.to('cuda') for mask_stft in mask_stfts]
+    
+    y_masks = model(mix_stft)
+    inv_y_masks = [inv_stft_gpu(y_mask) for y_mask in y_masks]
+    inv_mask_stfts = [inv_stft_gpu(mask_stft) for mask_stft in mask_stfts]
+    
+    total_loss = 0
+    for y_mask, mask_stft, inv_y_mask, inv_mask_stft in zip(y_masks, mask_stfts, inv_y_masks, inv_mask_stfts):
+        total_loss += loss_fn(y_mask, mask_stft, inv_y_mask, inv_mask_stft)
+    total_loss.backward()
+    
     torch.nn.utils.clip_grad_norm_(model.parameters(), clip_grad_norm)
     optimizer.step()
     
-    usdr_value = compute_usdr(inv_y_mask, inv_mask_stft).item()
-    return {'loss': loss.item(), 'usdr': usdr_value}
+    usdr_values = [compute_usdr(inv_y_mask, inv_mask_stft).item() for \
+                      inv_y_mask, inv_mask_stft in zip(inv_y_masks, inv_mask_stfts)]
+    return {'loss': total_loss.item(), 'usdr': np.mean(usdr_values)}
 
 
 trainer = Engine(train_step)
@@ -792,13 +812,19 @@ tb_logger.attach_output_handler(
 def eval_step(engine, batch):
     model.eval()
     with torch.no_grad():
-        mix_stft, mask_stft = batch
-        mix_stft, mask_stft = mix_stft.to('cuda'), mask_stft.to('cuda')
-        y_mask = model(mix_stft)
-        inv_y_mask = inv_stft_gpu(y_mask)
-        inv_mask_stft = inv_stft_gpu(mask_stft)
-        usdr_value = compute_usdr(inv_y_mask, inv_mask_stft).item()
-        return {'usdr': usdr_value}
+        mix_stft, mask_stfts = batch
+        mix_stft, mask_stfts = mix_stft.to('cuda'), mask_stfts
+        mask_stfts = [mask_stft.to('cuda') for mask_stft in mask_stfts]
+
+        y_masks = model(mix_stft)
+        inv_y_masks = [inv_stft_gpu(y_mask) for y_mask in y_masks]
+        inv_mask_stfts = [inv_stft_gpu(mask_stft) for mask_stft in mask_stfts]
+        
+        
+        usdr_values = [compute_usdr(inv_y_mask, inv_mask_stft).item() for \
+                      inv_y_mask, inv_mask_stft in zip(inv_y_masks, inv_mask_stfts)]
+        
+        return {"usdr": np.mean(usdr_values)}
 
 evaluator = Engine(eval_step)
 
@@ -864,11 +890,16 @@ if inference:
 #~~Train
 
 if transfer_learning:
+    new_model = BSRNN(num_sources=1).to('cuda')
+    new_model.split = model.split
+    new_model.sequence = model.sequence
+    new_model.mask = nn.ModuleList([model.masks[0]])
+    model = new_model
     print(f"Params before freeze -> {count_parameters(model)}")
     # Freeze first two modules. keep the mask estimation
     model.split.requires_grad_(False)
     model.sequence.requires_grad_(False)
-    model.mask.requires_grad_(True)
+    model.masks.requires_grad_(True)
     # we should reset some states
     running_avg_usdr.reset()
     running_avg_loss.reset()
@@ -877,10 +908,11 @@ if transfer_learning:
     print(f"Params after freeze -> {count_parameters(model)}")
 
 # Progress Bar
+
 pbar = ProgressBar(persist=True)
 pbar.attach(trainer, metric_names=['running_avg_loss', 'running_avg_usdr'])
 # Run Training
 print(f"Parameter count {count_parameters(model)}")
-trainer.run(train_loader, max_epochs=158)
+trainer.run(train_loader, max_epochs=max_epochs)
 print(prefix)    
 print("Done!")
