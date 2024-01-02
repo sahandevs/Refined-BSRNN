@@ -1,0 +1,118 @@
+<mxfile host="65bd71144e">
+    <diagram id="2d38cY8FLGBOjqEzuytp" name="Page-1">
+        <mxGraphModel dx="1749" dy="669" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="1" shadow="0">
+            <root>
+                <mxCell id="0"/>
+                <mxCell id="1" parent="0"/>
+                <mxCell id="40" style="edgeStyle=none;html=1;fontFamily=Times New Roman;" parent="1" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="240" y="255" as="sourcePoint"/>
+                        <mxPoint x="262" y="255" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="71" style="edgeStyle=none;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontFamily=Times New Roman;fontSize=12;" edge="1" parent="1" source="10" target="53">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="10" value="Norm + MLP" style="whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=Times New Roman;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="390" y="130" width="66" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="72" style="edgeStyle=none;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontFamily=Times New Roman;fontSize=12;" edge="1" parent="1" source="15" target="54">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="15" value="Norm + MLP" style="whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontFamily=Times New Roman;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="390" y="200" width="66" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="17" value="Norm + MLP" style="whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontFamily=Times New Roman;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="390" y="250" width="65" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="73" style="edgeStyle=none;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontFamily=Times New Roman;fontSize=12;" edge="1" parent="1" source="18" target="56">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="18" value="Norm + MLP" style="whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontFamily=Times New Roman;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="390" y="330" width="65" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="74" style="edgeStyle=none;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontFamily=Times New Roman;fontSize=12;" edge="1" parent="1" source="19" target="57">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="19" value="Norm + MLP" style="whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontFamily=Times New Roman;fontSize=10;" parent="1" vertex="1">
+                    <mxGeometry x="390" y="360" width="65" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="35" value=".&lt;br&gt;.&lt;br&gt;." style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" parent="1" vertex="1">
+                    <mxGeometry x="408" y="270" width="30" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="43" value="" style="edgeStyle=none;html=1;fontFamily=Times New Roman;" parent="1" edge="1">
+                    <mxGeometry relative="1" as="geometry">
+                        <mxPoint x="590" y="255" as="sourcePoint"/>
+                        <mxPoint x="640" y="255" as="targetPoint"/>
+                    </mxGeometry>
+                </mxCell>
+                <mxCell id="45" value="Merge" style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontFamily=Times New Roman;fontStyle=0" parent="1" vertex="1">
+                    <mxGeometry x="590" y="250" width="50" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="46" value="\[ Q \in \mathbb{R}^{N \times K \times T} \]" style="shape=cube;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;darkOpacity=0.05;darkOpacity2=0.1;fontFamily=Times New Roman;fillColor=none;" vertex="1" parent="1">
+                    <mxGeometry x="140" y="210" width="100" height="75" as="geometry"/>
+                </mxCell>
+                <mxCell id="52" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Times New Roman;fillColor=none;dashed=1;" vertex="1" parent="1">
+                    <mxGeometry x="470" y="120" width="120" height="270" as="geometry"/>
+                </mxCell>
+                <mxCell id="53" value="\[ M_k \in \mathbb{C}^{G_k \times T} \]" style="whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;fontFamily=Times New Roman;" vertex="1" parent="1">
+                    <mxGeometry x="490" y="130" width="90" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="54" value="\[ M_{K-1} \in \mathbb{C}^{G_k \times T} \]" style="whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=12;fontFamily=Times New Roman;" vertex="1" parent="1">
+                    <mxGeometry x="490" y="200" width="90" height="40" as="geometry"/>
+                </mxCell>
+                <mxCell id="55" value="\[ M_{K-2} \in \mathbb{C}^{G_k \times T} \]" style="whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;fontSize=12;fontFamily=Times New Roman;" vertex="1" parent="1">
+                    <mxGeometry x="490" y="250" width="90" height="30" as="geometry"/>
+                </mxCell>
+                <mxCell id="56" value="\[ M_2 \in \mathbb{C}^{G_k \times T} \]" style="whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=12;fontFamily=Times New Roman;" vertex="1" parent="1">
+                    <mxGeometry x="490" y="330" width="90" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="57" value="\[ M_1 \in \mathbb{C}^{G_k \times T} \]" style="whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=12;fontFamily=Times New Roman;" vertex="1" parent="1">
+                    <mxGeometry x="490" y="360" width="90" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="58" value=".&lt;br&gt;.&lt;br&gt;." style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;fontFamily=Times New Roman;" vertex="1" parent="1">
+                    <mxGeometry x="505" y="270" width="30" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="59" value="" style="rounded=0;whiteSpace=wrap;html=1;fontFamily=Times New Roman;fillColor=none;dashed=1;" vertex="1" parent="1">
+                    <mxGeometry x="260" y="120" width="115" height="270" as="geometry"/>
+                </mxCell>
+                <mxCell id="70" style="edgeStyle=none;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontFamily=Times New Roman;fontSize=10;" edge="1" parent="1" source="60" target="19">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="60" value="\[ Q_1 \in \mathbb{R}^{N \times T} \]" style="whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+                    <mxGeometry x="275" y="360" width="90" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="69" style="edgeStyle=none;html=1;entryX=0;entryY=0.5;entryDx=0;entryDy=0;fontFamily=Times New Roman;fontSize=10;" edge="1" parent="1" source="61" target="18">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="61" value="\[ Q_2 \in \mathbb{R}^{N \times T} \]" style="whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+                    <mxGeometry x="275" y="330" width="90" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="68" style="edgeStyle=none;html=1;fontFamily=Times New Roman;fontSize=10;" edge="1" parent="1" source="62" target="17">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="62" value="\[ Q_{K-2} \in \mathbb{R}^{N \times T} \]" style="whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+                    <mxGeometry x="275" y="255" width="90" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="67" style="edgeStyle=none;html=1;fontFamily=Times New Roman;fontSize=10;" edge="1" parent="1" source="63" target="15">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="63" value="\[ Q_{K - 1} \in \mathbb{R}^{N \times T} \]" style="whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+                    <mxGeometry x="275" y="210" width="90" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="66" style="edgeStyle=none;html=1;fontFamily=Times New Roman;fontSize=10;" edge="1" parent="1" source="64" target="10">
+                    <mxGeometry relative="1" as="geometry"/>
+                </mxCell>
+                <mxCell id="64" value="\[ Q_K \in \mathbb{R}^{N \times T} \]" style="whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;" vertex="1" parent="1">
+                    <mxGeometry x="275" y="150" width="90" height="20" as="geometry"/>
+                </mxCell>
+                <mxCell id="65" value=".&lt;br&gt;.&lt;br&gt;." style="text;html=1;align=center;verticalAlign=middle;resizable=0;points=[];autosize=1;strokeColor=none;fillColor=none;" vertex="1" parent="1">
+                    <mxGeometry x="305" y="270" width="30" height="60" as="geometry"/>
+                </mxCell>
+                <mxCell id="75" value="\[ M \in \mathbb{C}^{F \times T} \]" style="whiteSpace=wrap;html=1;fontFamily=Times New Roman;" vertex="1" parent="1">
+                    <mxGeometry x="640" y="235" width="69" height="40" as="geometry"/>
+                </mxCell>
+            </root>
+        </mxGraphModel>
+    </diagram>
+</mxfile>
