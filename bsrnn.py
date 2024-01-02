@@ -30,7 +30,7 @@ parser.add_argument('--num_blstm_layers', type=int, default=24)
 parser.add_argument('--mlp_dim', type=int, default=512)
 parser.add_argument('--batch_size', type=int, default=95)
 parser.add_argument('--clip_grad_norm', type=int, default=5)
-parser.add_argument('--max_epochs', type=int, default=150) 
+parser.add_argument('--max_epochs', type=int, default=150)
 parser.add_argument('--portion', type=float, default=1.0)
 parser.add_argument('--lr', type=float, default=0.001)
 
@@ -354,7 +354,6 @@ class BandSplit(nn.Module, Vis):
                 start_index = end_index
         indices.append((start_index, freqs.shape[0]))
         self.band_indices = indices
-        print(self.band_indices)
         self.fully_connected_out = fully_connected_out
         
         self.layer_norms = nn.ModuleList([
