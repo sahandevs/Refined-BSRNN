@@ -1,0 +1,7 @@
+torch
+torchaudio
+numpy
+pytorch-ignite
+tqdm
+librosa
+matplotlib

@@ -1,15 +1,16 @@
 from pprint import pprint
-from .utils import GLOBAL_CONFIG, sep
-from .model import BSRNN, ModelConfig
+from utils import sep
+from model import ModelConfig
 import utils
 
 import torch
+import torchaudio
 
 from pathlib import Path
 from argparse import _SubParsersAction, ArgumentParser
 
 
-def init_arg_parser(subparsers: _SubParsersAction[ArgumentParser]):
+def init_arg_parser(subparsers: _SubParsersAction):
     COMMAND_NAME = "infer"
     parser = subparsers.add_parser(COMMAND_NAME, help="infer mode")
     parser.add_argument(
@@ -40,13 +41,13 @@ class Config:
     input: Path
 
     def __init__(self, args: dict):
-        self.checkpoint_fp = args["--checkpoint_fp"]
-        self.out_dir = args["--out_dir"]
-        self.input = args["--input"]
+        self.checkpoint_fp = args["checkpoint_fp"]
+        self.out_dir = args["out"]
+        self.input = args["input"]
 
 
-def do_infer(parser: ArgumentParser):
-    cfg = Config(parser.parse_args())
+def do_infer(args: dict):
+    cfg = Config(args)
 
     print("Infer mode Configuration:")
     pprint(cfg.__dict__)
@@ -54,54 +55,33 @@ def do_infer(parser: ArgumentParser):
 
     cp = torch.load(cfg.checkpoint_fp)
     print("Checkpoint Configuration:")
-    pprint(cp.__dict__)
+    pprint(cp["cfg"].__dict__)
     sep()
 
-    model = Inference(bsrnn=cp["model"], cfg=cp["cfg"])
-    utils.load_audio(cfg.input, cfg=cp["cfg"])
+    model = ModelConfig(cp["cfg"].__dict__).create_model(
+        num_sources=len(cp["cfg"].__dict__["parts"])
+    )
+    model.load_state_dict(cp["model"])
 
-    # TODO: save
+    x = utils.load_audio(cfg.input, cfg=cp["cfg"])
+    normal_waveform, gain_factor, peak_gain_factor = utils.normalize_waveform(
+        x, cfg=cp["cfg"]
+    )
+    splits, padding_length = utils.split(normal_waveform, cfg=cp["cfg"])
+    to_spectrogram = utils.to_spectrogram(cp["cfg"])
+    from_spectrogram = utils.from_spectrogram(cp["cfg"])
 
+    # TODO: use merge to create the full waveform
+    split_stft = to_spectrogram(splits[0])
+    y = model(split_stft.unsqueeze(0))
 
-class Inference(torch.nn.Module):
-    def __init__(self, bsrnn: BSRNN, cfg: ModelConfig):
-        super(Inference, self).__init__()
-        self.cfg = cfg
-        self.to_spectrogram = utils.to_spectrogram(cfg)
-        self.from_spectrogram = utils.from_spectrogram(cfg)
-        self.bsrnn = BSRNN()
+    prefix = cfg.input.name.split(".")[0]
 
-    def forward(self, waveform):
-        """Waveform in -> Waveform out :)"""
-
-        # 1) normalize
-        # 2) split
-        # 3) feed to bsrnn
-        # 4) convert spectogram to audio
-        # 5) merge all splits
-        # 6) de-normalize
-
-        # TODO: implement with the new multi part framework
-        normal_waveform, gain_factor, peak_gain_factor = utils.normalize_waveform(
-            waveform
+    for i, part in enumerate(cp["cfg"].parts):
+        # torch.Size([4, 1, 1025, 87])
+        print(f"saving {part}")
+        part_stft = y[i][0]
+        wav = from_spectrogram(part_stft)
+        torchaudio.save(
+            cfg.out_dir / f"{prefix}-{part}.wav", wav, cp["cfg"].sample_rate
         )
-        splits, padding_length = utils.split(normal_waveform, cfg=self.cfg)
-        masked_splits = [[] for _ in range(len(splits))]
-        for i, x_split in enumerate(splits):
-            split_stft = self.to_spectrogram(x_split)
-            masks = self.bsrnn(split_stft.unsqueeze(0))[0]
-
-            for source in masks:
-                wave = self.from_spectrogram(masked_complex)
-                masked_splits[i].append(wave)
-
-        sources = []
-        for masked_splits_in_source in zip(*masked_splits):
-            sources.append(masked_splits_in_source)
-
-        masked_waveforms = [merge(x, padding_length) for x in sources]
-        y = [
-            utils.de_normalize_waveform(x, gain_factor, peak_gain_factor)
-            in masked_waveforms
-        ]
-        return y

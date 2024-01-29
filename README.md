@@ -104,10 +104,131 @@ Upon completing the training process, the Mask Estimations Layer can be detached
 
 ## 3.1 Getting started
 
-TODO: dataset
-TODO: ref to pre-trained model
-Configuration and parameters
+**Requirements**:
+- Dataset: [MUSDB18-HQ](https://zenodo.org/records/3338373)
+- python3 + [`requirements.txt`](./src/requirements.txt)
+
+
+```shell
+git clone https://github.com/sahandevs/BandSplit-RNN.git
+cd ./BandSplit-RNN/src
+
+python3 bsrnn.py --help
+```
+
+```
+usage: bsrnn [-h] [--device DEVICE] [--seed SEED] {train,infer} ...
+
+positional arguments:
+  {train,infer}    commands
+    train          train mode
+    infer          infer mode
+
+options:
+  -h, --help       show this help message and exit
+  --device DEVICE  torch.device
+  --seed SEED      seed random generators. set -1 for random
+```
+
+**train:**
+
+```
+usage: bsrnn train [-h] [--sample_rate SAMPLE_RATE] [--generic_bands GENERIC_BANDS] [--chunk_size_in_seconds CHUNK_SIZE_IN_SECONDS]
+                   [--n_fft N_FFT] [--feature_dim FEATURE_DIM] [--num_blstm_layers NUM_BLSTM_LAYERS] [--mlp_dim MLP_DIM]
+                   [--batch_size BATCH_SIZE] [--reduce_size REDUCE_SIZE] [--part PARTS] [--portion PORTION]
+                   [--clip_grad_norm CLIP_GRAD_NORM] [--max_epochs MAX_EPOCHS] [--lr LR] [--data_loader_workers DATA_LOADER_WORKERS]
+                   --musdbhq_location MUSDBHQ_LOCATION [--checkpoint_fp CHECKPOINT_FP] --name NAME
+
+options:
+  -h, --help            show this help message and exit
+  --sample_rate SAMPLE_RATE
+                        Transform every audio to this sample rate
+  --generic_bands GENERIC_BANDS
+                        Use generic band schema (refined BSRNN)
+  --chunk_size_in_seconds CHUNK_SIZE_IN_SECONDS
+                        split waveform into x second chunks
+  --n_fft N_FFT         STFT's n_fft param
+  --feature_dim FEATURE_DIM
+                        size of band-split module feature dim
+  --num_blstm_layers NUM_BLSTM_LAYERS
+                        number of stacked RNNs in BandSequence module
+  --mlp_dim MLP_DIM     number of MaskEstimation module feature dim
+  --batch_size BATCH_SIZE
+                        NOTE: batch size is not songs but chunks in a single song
+  --reduce_size REDUCE_SIZE
+                        apply tricks to reduce model size (for experimenting only)
+  --part PARTS          which part to train on (not MTL)
+  --portion PORTION     percentage (0.0 to 1.0) of dataset to use. Useful for experimenting with smaller dataset
+  --clip_grad_norm CLIP_GRAD_NORM
+  --max_epochs MAX_EPOCHS
+  --lr LR               learning rate
+  --data_loader_workers DATA_LOADER_WORKERS
+  --musdbhq_location MUSDBHQ_LOCATION
+                        location of downloaded dataset (location of the root folder. the root folder should contain two sub-folders named
+                        'train' and 'test')
+  --checkpoint_fp CHECKPOINT_FP
+                        location of checkpoint file (.pt)
+  --name NAME           unique name for run name
+```
+
+**infer:**
+
+```
+usage: bsrnn infer [-h] --checkpoint_fp CHECKPOINT_FP --input INPUT --out OUT
+
+options:
+  -h, --help            show this help message and exit
+  --checkpoint_fp CHECKPOINT_FP
+                        location of checkpoint file (.pt)
+  --input INPUT         model input audio file
+  --out OUT             directory to output source(s)
+```
 
 ## 3.2 Project structure
 
+- [`./assets`](./assets/): Images and wav files for this file
+- [`./docs`](./docs/): Diagrams and the reports
+- [`./src`](./src/): Implementation directory
+  - [`./src/bsrnn.py`](./src/bsrnn.py): CLI entrypoint
+  - [`./src/infer.py`](./src/infer.py): Inference code
+  - [`./src/train.py`](./src/train.py): Train code
+  - [`./src/model.py`](./src/model.py): Model definition
+  - [`./src/utils.py`](./src/utils.py): Utility functions
+  - [`./src/visualize.ipynb`](./src/visualize.ipynb): Model scratchpad and experiments notebook
+
 ## 4 Results
+
+- **[TinyBaseModel] Comparison between generic splits vs v7 schema for transfer learning:**
+
+In this experiment, we trained two base models with v7 schema (original paper) and generic splits schema (our method) for drums, then applied transfer learning for other sources (vocals, bass andd other). Following figure shows the uSDR score of the resulting models. (shades of red -> baseline (v7 schema), shades of blue -> generic splits)
+
+Hardware:
+- 3070 | 32GB Ram | i5 12th
+- base models: ~30hr
+- transferred models: ~2.5hr
+
+![compare](./assets/generic-splits-vs-v7-transfer-learning.png)
+
+We did see improvements on drums to (bass and other) but not in vocals. To ensure the results are consistent we should train a larger model. The base models are significantly smaller in comparison of the original paper suggested model size.
+
+Input song (out of dataset): [NUCLEAR KITTENS!!!! // Pomplamoose
+](https://www.youtube.com/watch?v=HP8La1yBDrw)
+
+|Model name|Output|Checkpoint Download|
+|--- |--- |--- |
+|Baseline drums|[.wav](./assets/v7-baseline-drums.wav)|[Google Drive](https://drive.google.com/drive/folders/19wf1OYnhJAy7SDDGfkL8py9mPFcSI30r?usp=sharing)|
+|Generic splits drums|[.wav](./assets/generic-splits.drums.wav)|[Google Drive](https://drive.google.com/drive/folders/19wf1OYnhJAy7SDDGfkL8py9mPFcSI30r?usp=sharing)|
+|Baseline drums to bass|[.wav](./assets/v7-baselin-drums-to-bass.wav)|[Google Drive](https://drive.google.com/drive/folders/19wf1OYnhJAy7SDDGfkL8py9mPFcSI30r?usp=sharing)|
+|Generic splits drums to bass|[.wav](./assets/generic-splits-drums-to-bass.wav)|[Google Drive](https://drive.google.com/drive/folders/19wf1OYnhJAy7SDDGfkL8py9mPFcSI30r?usp=sharing)|
+|Baseline drums to other|[.wav](./assets/v7-baseline-drums-to-other.wav)|[Google Drive](https://drive.google.com/drive/folders/19wf1OYnhJAy7SDDGfkL8py9mPFcSI30r?usp=sharing)|
+|Generic splits drums to other|[.wav](./assets/generic-splits-drums-to-othere.wav)|[Google Drive](https://drive.google.com/drive/folders/19wf1OYnhJAy7SDDGfkL8py9mPFcSI30r?usp=sharing)|
+|Baseline drums to vocals|[.wav](./assets/v7-baseline-drums-to-vocals.wav)|[Google Drive](https://drive.google.com/drive/folders/19wf1OYnhJAy7SDDGfkL8py9mPFcSI30r?usp=sharing)|
+|Generic splits drums to vocals|[.wav](./assets/generic-splits-drums-to-vocals.wav)|[Google Drive](https://drive.google.com/drive/folders/19wf1OYnhJAy7SDDGfkL8py9mPFcSI30r?usp=sharing)|
+
+- **[LargeBaseModel] Comparison between generic splits vs v7 schema for transfer learning:**
+
+N/A
+
+- **[MTL] Use multi-task learning**
+
+N/A

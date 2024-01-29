@@ -1,5 +1,3 @@
-from .model import ModelConfig
-
 # boolean type for argparse
 # source: https://stackoverflow.com/questions/15008758/parsing-boolean-values-with-argparse
 _bool = lambda x: x.lower() == "true"
@@ -11,7 +9,7 @@ class GlobalConfig:
     notebook: bool
 
     def __init__(self, dict):
-        self.seed = dict["--seed"]
+        self.seed = dict["seed"]
         import random
 
         if self.seed == -1:
@@ -22,7 +20,7 @@ class GlobalConfig:
         torch.manual_seed(self.seed)
         numpy.random.seed(self.seed)
 
-        self.device = dict["--device"]
+        self.device = dict["device"]
         if self.device == "auto":
             self.device = "cuda:0" if torch.cuda.is_available() else "cpu"
         torch.set_default_device(self.device)
@@ -60,19 +58,19 @@ import torchaudio.transforms as T
 import matplotlib.pyplot as plt
 
 
-def show_idp_audio(waveform, cfg: ModelConfig):
+def show_idp_audio(waveform, cfg):
     import IPython.display as idp
 
     n = 14
     return idp.display(
         idp.Audio(
-            waveform[(3 * n) * cfg.sample_rate : (3 * (n + 1)) * cfg.sample_rate],
+            waveform,
             rate=cfg.sample_rate,
         )
     )
 
 
-def load_audio(path, cfg: ModelConfig):
+def load_audio(path, cfg):
     waveform, sr = torchaudio.load(path)
     # Convert everthing to mono channel for simplicity
     if waveform.shape[0] > 1:
@@ -85,7 +83,7 @@ def load_audio(path, cfg: ModelConfig):
     if GLOBAL_CONFIG.notebook:
         # samplerate = 1/t
         # display the first 3 seconds
-        show_idp_audio(waveform)
+        show_idp_audio(waveform, cfg)
 
     return waveform
 
@@ -116,67 +114,40 @@ def peak_denormalize(normalized_waveform, peak_gain_factor):
     return reversed_waveform
 
 
-def inspect_waveform(waveform, cfg: ModelConfig):
+def inspect_waveform(waveform, cfg):
     transform = T.Loudness(cfg.sample_rate)
     return f"LKFS:{transform(waveform.unsqueeze(0))} max: {waveform.max()} min: {waveform.min()} avg: {waveform.mean()}"
 
 
-def normalize_waveform(waveform, cfg: ModelConfig):
+def normalize_waveform(waveform, cfg):
     """rms -> peak"""
     # target rms can be anything. the important part here
     # is to be constant for all kind of songs
 
-    if GLOBAL_CONFIG.notebook:
-        print("original: " + inspect_waveform(waveform, cfg))
-        show_idp_audio(waveform, cfg)
-
     normalized_waveform, gain_factor = rms_normalize(waveform, target_rms=0.1)
-
-    if GLOBAL_CONFIG.notebook:
-        print("rms_normalize: " + inspect_waveform(normalized_waveform, cfg))
-        show_idp_audio(normalized_waveform, cfg)
-
     # setting target peak to 1.0 forces the values between -1.0 < y < 1.0
     normalized_waveform, peak_gain_factor = peak_normalize(
         normalized_waveform, target_peak=0.1
     )
-
-    if GLOBAL_CONFIG.notebook:
-        print("peak_normalize: " + inspect_waveform(normalized_waveform, cfg))
-        show_idp_audio(normalized_waveform, cfg)
-
     return normalized_waveform, gain_factor, peak_gain_factor
 
 
-def de_normalize_waveform(waveform, gain_factor, peak_gain_factor, cfg: ModelConfig):
-    if GLOBAL_CONFIG.notebook:
-        print("de_normalize_waveform: " + inspect_waveform(waveform, cfg))
-        show_idp_audio(waveform, cfg)
-
+def de_normalize_waveform(waveform, gain_factor, peak_gain_factor, cfg):
     waveform = peak_denormalize(waveform, peak_gain_factor)
-
-    if GLOBAL_CONFIG.notebook:
-        print("peak_denormalize: " + inspect_waveform(waveform, cfg))
-        show_idp_audio(waveform, cfg)
     waveform = rms_denormalize(waveform, gain_factor)
-
-    if GLOBAL_CONFIG.notebook:
-        print("rms_denormalize: " + inspect_waveform(waveform, cfg))
-        show_idp_audio(waveform, cfg)
-
     return waveform
 
 
 def split(
     waveform,
-    cfg: ModelConfig,
+    cfg,
     drop_last=False,
 ):
     # we have a vector by length n and we want to split it to even chunks by length of
     # chunk_size
     padding_length = (
         cfg.chunk_size - waveform.shape[0] % cfg.chunk_size
-    ) % cfg.hunk_size
+    ) % cfg.chunk_size
     waveform = nn.functional.pad(waveform, (0, padding_length), "constant", 0)
     # -1 means automatically infer based on other dims
     chunked_waveform = waveform.view(-1, cfg.chunk_size)
@@ -222,7 +193,7 @@ def merge(chunks, padding_length):
     return merged_waveform[:-padding_length]
 
 
-def visualize_spectrogram(chunk, chunk_stft, cfg: ModelConfig, title="Spectrogram"):
+def visualize_spectrogram(chunk, chunk_stft, cfg, title="Spectrogram"):
     import librosa
 
     _, axis = plt.subplots(2, 1, figsize=(16, 5))
@@ -240,7 +211,7 @@ def visualize_spectrogram(chunk, chunk_stft, cfg: ModelConfig, title="Spectrogra
         axis[1].set_xlim([0, len(chunk)])
 
 
-def to_spectrogram(cfg: ModelConfig):
+def to_spectrogram(cfg):
     transform_spectrogram = T.Spectrogram(
         n_fft=cfg.n_fft,
         win_length=cfg.win_length,
@@ -259,7 +230,7 @@ def to_spectrogram(cfg: ModelConfig):
     return inner
 
 
-def from_spectrogram(cfg: ModelConfig):
+def from_spectrogram(cfg):
     transform_inv_spectrogram = T.InverseSpectrogram(
         n_fft=cfg.n_fft,
         win_length=cfg.win_length,
@@ -271,7 +242,7 @@ def from_spectrogram(cfg: ModelConfig):
         chunk = transform_inv_spectrogram(chunk_stft)
 
         if GLOBAL_CONFIG.notebook:
-            visualize_spectrogram(chunk.detach().numpy(), chunk_stft)
+            visualize_spectrogram(chunk.detach().numpy(), chunk_stft, cfg=cfg)
 
         return chunk
 

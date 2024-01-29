@@ -1,5 +1,5 @@
-from .utils import sep, GLOBAL_CONFIG
-from .model import ModelConfig, init_model_arg_parser
+from utils import sep, GLOBAL_CONFIG
+from model import ModelConfig, init_model_arg_parser
 
 from argparse import _SubParsersAction, ArgumentParser
 import utils
@@ -36,7 +36,7 @@ from ignite.contrib.handlers import ProgressBar
 from ignite.handlers import Timer
 
 
-def init_arg_parser(subparsers: _SubParsersAction[ArgumentParser]):
+def init_arg_parser(subparsers: _SubParsersAction):
     COMMAND_NAME = "train"
     parser = subparsers.add_parser(COMMAND_NAME, help="train mode")
     init_model_arg_parser(parser)
@@ -88,15 +88,15 @@ class Config(ModelConfig):
 
     def __init__(self, args: dict):
         super().__init__(args)
-        self.batch_size = args["--batch_size"]
-        self.data_loader_workers = args["--data_loader_workers"]
-        self.portion = args["--portion"]
-        self.musdbhq_location = args["--musdbhq_location"]
-        self.checkpoint_fp = args["--checkpoint_fp"] or ""
-        self.name = args["--name"]
-        self.clip_grad_norm = args["--clip_grad_norm"]
-        self.max_epochs = args["--max_epochs"]
-        self.lr = args["--lr"]
+        self.batch_size = args["batch_size"]
+        self.data_loader_workers = args["data_loader_workers"]
+        self.portion = args["portion"]
+        self.musdbhq_location = args["musdbhq_location"]
+        self.checkpoint_fp = args["checkpoint_fp"] or ""
+        self.name = args["name"]
+        self.clip_grad_norm = args["clip_grad_norm"]
+        self.max_epochs = args["max_epochs"]
+        self.lr = args["lr"]
 
 
 class CustomLoss(nn.Module):
@@ -218,8 +218,8 @@ def collate_fn(batch):
     return torch.stack(b_mix_stft), [torch.stack(x) for x in b_target_stfts]
 
 
-def do_train(parser: ArgumentParser):
-    cfg = Config(parser.parse_args())
+def do_train(args: dict):
+    cfg = Config(args)
 
     print("Train mode Configuration:")
     pprint(cfg.__dict__)

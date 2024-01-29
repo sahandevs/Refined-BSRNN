@@ -1,4 +1,3 @@
-from .utils import _bool
 import utils
 
 from argparse import ArgumentParser
@@ -17,7 +16,7 @@ def init_model_arg_parser(parser: ArgumentParser):
     )
     parser.add_argument(
         "--generic_bands",
-        type=_bool,
+        type=utils._bool,
         default="false",
         help="Use generic band schema (refined BSRNN)",
     )
@@ -52,6 +51,12 @@ def init_model_arg_parser(parser: ArgumentParser):
         default=95,
         help="NOTE: batch size is not songs but chunks in a single song",
     )
+    parser.add_argument(
+        "--reduce_size",
+        type=utils._bool,
+        default=False,
+        help="apply tricks to reduce model size (for experimenting only)",
+    )
 
     parser.add_argument(
         "--part",
@@ -72,15 +77,17 @@ class ModelConfig:
     num_blstm_layers: int
     mlp_dim: int
     parts: list[str]
+    reduce_size: bool
 
     def __init__(self, args: dict):
-        self.sample_rate = args["--sample_rate"]
-        self.generic_bands = args["--generic_bands"]
-        self.chunk_size_in_seconds = args["--chunk_size_in_seconds"]
-        self.n_fft = args["--n_fft"]
-        self.feature_dim = args["--feature_dim"]
-        self.num_blstm_layers = args["--num_blstm_layers"]
-        self.mlp_dim = args["--mlp_dim"]
+        self.sample_rate = args["sample_rate"]
+        self.generic_bands = args["generic_bands"]
+        self.chunk_size_in_seconds = args["chunk_size_in_seconds"]
+        self.n_fft = args["n_fft"]
+        self.feature_dim = args["feature_dim"]
+        self.num_blstm_layers = args["num_blstm_layers"]
+        self.mlp_dim = args["mlp_dim"]
+        self.reduce_size = args["reduce_size"]
         self.parts = args["parts"]
         self.chunk_size = self.chunk_size_in_seconds * self.sample_rate
         self.win_length = self.n_fft
@@ -300,20 +307,22 @@ class MaskEstimation(nn.Module, Vis):
     def __init__(self, band_split: BandSplit, cfg: ModelConfig):
         super(MaskEstimation, self).__init__()
 
-        max_indice_diff = max([e - s for s, e in band_split.fully_connected_out])
+        max_indice_diff = max([e - s for s, e in band_split.band_indices])
         # TODO: support older version
         num_hiddens = lambda e, s: 3 * (max_indice_diff - (e - s) + 1)
+
+        mlp_dim = lambda e, s: num_hiddens(e, s) if cfg.reduce_size else cfg.mlp_dim
         self.layers = nn.ModuleList(
             [
                 nn.Sequential(
                     nn.LayerNorm(
                         [band_split.temporal_dim, band_split.fully_connected_out]
                     ),
-                    nn.Linear(band_split.fully_connected_out, cfg.mlp_dim),
+                    nn.Linear(band_split.fully_connected_out, mlp_dim(e, s)),
                     nn.Tanh(),
                     # double the output dim to use in GLU
                     # the extra *2 is for returning as complex
-                    nn.Linear(cfg.mlp_dim, (e - s) * 2 * 2),
+                    nn.Linear(mlp_dim(e, s), (e - s) * 2 * 2),
                     nn.GLU(),
                 )
                 for s, e in band_split.band_indices
